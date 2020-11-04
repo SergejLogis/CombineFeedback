@@ -100,9 +100,25 @@ public final class Context<State, Event>: ObservableObject {
         )
     }
     
-    public func action(for event: Event) -> () -> Void {
-        return {
+    public func action(for event: Event, async: Bool = false) -> () -> Void {
+        let action = {
             self.send(event: event)
+        }
+
+        return {
+            if async {
+                DispatchQueue.main.async(execute: action)
+            } else {
+                action()
+            }
+        }
+    }
+
+    public func action(for event: Event, asyncAfter delay: TimeInterval) -> () -> Void {
+        let action = self.action(for: event, async: false)
+
+        return {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: action)
         }
     }
 
