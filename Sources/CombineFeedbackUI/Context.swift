@@ -13,7 +13,7 @@ public final class Context<State, Event>: ObservableObject {
         self.state = store.state
         self.send = store.send
         self.mutate = store.mutate
-        store.$state.assign(to: \.state, on: self).store(in: &bag)
+        store.$state.assign(to: \.state, weakly: self).store(in: &bag)
     }
         
     public init(
@@ -100,9 +100,20 @@ public final class Context<State, Event>: ObservableObject {
         )
     }
     
+    public func binding<U, T>(for keyPath: WritableKeyPath<State, U>, get: @escaping (U) -> T, set: @escaping (T) -> (U)) -> Binding<T> {
+        return Binding(
+            get: {
+                get(self.state[keyPath: keyPath])
+            },
+            set: {
+                self.mutate(Mutation(keyPath: keyPath, value: set($0)))
+            }
+        )
+    }
+    
     public func action(for event: Event, async: Bool = false) -> () -> Void {
-        let action = {
-            self.send(event: event)
+        let action = { [weak self] () -> Void in
+            self?.send(event: event)
         }
 
         return {
@@ -129,5 +140,38 @@ public final class Context<State, Event>: ObservableObject {
             .map(keyPath)
             .removeDuplicates()
             .eraseToAnyPublisher()
+    }
+}
+
+public protocol OptionalProtocol {
+    associatedtype Wrapped
+    var wrapped: Wrapped? { get set }
+}
+
+extension Optional: OptionalProtocol {
+    public var wrapped: Wrapped? {
+        get {
+            return self
+        }
+        set {
+            self = newValue
+        }
+    }
+}
+
+extension Context where State: OptionalProtocol {
+    public func binding<U>(for keyPath: WritableKeyPath<State.Wrapped, U>, defaultValue: U) -> Binding<U> {
+        return Binding(
+            get: {
+                self.state.wrapped?[keyPath: keyPath] ?? defaultValue
+            },
+            set: {
+                self.mutate(Mutation(keyPath: keyPath, value2: $0))
+            }
+        )
+    }
+
+    public subscript<U>(dynamicMember keyPath: KeyPath<State.Wrapped, U>, defaultValue: U) -> U {
+        return state.wrapped?[keyPath: keyPath] ?? defaultValue
     }
 }
