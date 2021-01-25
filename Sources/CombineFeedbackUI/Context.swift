@@ -48,20 +48,20 @@ public final class Context<State, Event>: ObservableObject {
     ) -> Context<LocalState, LocalEvent> {
         let localContext = Context<LocalState, LocalEvent>(
             state: state[keyPath: value],
-            send: { localEvent in
-                self.send(event(localEvent))
+            send: { [weak self] localEvent in
+                self?.send(event(localEvent))
             },
-            mutate: { (mutation: Mutation<LocalState>)  in
+            mutate: { [weak self] (mutation: Mutation<LocalState>) in
                 let superMutation: Mutation<State> = Mutation  { state in
                     mutation.mutate(&state[keyPath: value])
                 }
-                self.mutate(superMutation)
+                self?.mutate(superMutation)
             }
         )
         
         $state.map(value)
             .removeDuplicates(by: removeDuplicates)
-            .assign(to: \.state, on: localContext)
+            .assign(to: \.state, weakly: localContext)
             .store(in: &localContext.bag)
         
         return localContext
