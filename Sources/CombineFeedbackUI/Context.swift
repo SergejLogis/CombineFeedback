@@ -172,11 +172,16 @@ public final class Context<State, Event>: ObservableObject {
     }
 
     /// Returns publisher which publishes **unique** updates of value of a given `keyPath`.
+    /// By default, updates are received on a **main queue**. That effectivelly decouples value change site from processing site.
     /// - Note: `nil` values are also published.
-    public func updates<U>(for keyPath: KeyPath<State, U>) -> AnyPublisher<U, Never> where U: Equatable {
+    public func updates<U>(
+        for keyPath: KeyPath<State, U>,
+        receiveOn queue: DispatchQueue = .main
+    ) -> AnyPublisher<U, Never> where U: Equatable {
         return $state
             .map(keyPath)
             .removeDuplicates()
+            .receive(on: queue)
             .eraseToAnyPublisher()
     }
 }
